@@ -781,28 +781,21 @@ function attachRemoteListeners(){
   const ref = remoteRef;
   ref.child("categorias").on("value", snap=>{
     const v = snap.val();
-    if(Array.isArray(v)){
-      categorias = v;
-      normalizeOrden();
-    }
+    categorias = Array.isArray(v) ? v : [];
+    normalizeOrden();
     if(initialized) renderAll();
   });
   ref.child("transacciones").on("value", snap=>{
     const v = snap.val();
-    if(Array.isArray(v)) transacciones = v;
+    transacciones = Array.isArray(v) ? v : [];
     if(initialized) renderAll();
   });
 }
 
 function initialImport(){
-  if(localStorage.getItem(LS_MARK)) return;
   const lc = localCats();
   const lt = localTx();
   const hasLocal = (lc && lc.length) || lt.length;
-  if(!hasLocal){
-    localStorage.setItem(LS_MARK, "1");
-    return;
-  }
   setSyncStatus("syncing");
   const root = firebase.database().ref(dbPath());
   root.child("categorias").once("value").then(cs=>{
@@ -812,15 +805,19 @@ function initialImport(){
       const updates = {};
       const isRemoteFull = (Array.isArray(remoteCats) && remoteCats.length>0) || (Array.isArray(remoteTx) && remoteTx.length>0);
       if(isRemoteFull){
-        localStorage.setItem(LS_MARK, "1");
         setSyncStatus("synced");
         return;
       }
-      if(Array.isArray(lc) && lc.length) updates["/categorias"] = clean(lc);
-      else updates["/categorias"] = DEFAULT_CATS.map(c=>({...c}));
-      if(Array.isArray(lt)) updates["/transacciones"] = clean(lt);
-      root.update(updates).then(()=>{
+      if(hasLocal && !localStorage.getItem(LS_MARK)){
+        // primera cuenta del navegador: migrar los datos locales de la app
+        if(Array.isArray(lc) && lc.length) updates["/categorias"] = clean(lc);
+        if(Array.isArray(lt)) updates["/transacciones"] = clean(lt);
         localStorage.setItem(LS_MARK, "1");
+      } else {
+        // cuenta nueva: categorías por defecto propias
+        updates["/categorias"] = DEFAULT_CATS.map(c=>({...c}));
+      }
+      root.update(updates).then(()=>{
         setSyncStatus("synced");
       }).catch(()=>setSyncStatus("offline"));
     });
@@ -832,6 +829,13 @@ let remoteRef = null;
 function connected(){
   currentUser = firebase.auth().currentUser;
   if(!currentUser) return;
+  if(remoteRef){
+    remoteRef.child("categorias").off();
+    remoteRef.child("transacciones").off();
+    remoteRef = null;
+  }
+  categorias = [];
+  transacciones = [];
   const el = document.getElementById("sideEmail");
   if(el){
     el.textContent = currentUser.email || "Mi cuenta";
@@ -853,6 +857,8 @@ function disconnected(){
     remoteRef = null;
   }
   currentUser = null;
+  categorias = [];
+  transacciones = [];
   remoteLoaded = false;
   initialized = false;
   if(fbDB) firebase.database().goOffline();

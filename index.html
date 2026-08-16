@@ -2,8 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Libro — Finanzas personales</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#146356">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Libro">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="chart.umd.min.js"></script>
@@ -28,6 +35,22 @@
   --radius:10px;
   --shadow:0 1px 2px rgba(18,24,31,0.04), 0 8px 24px -12px rgba(18,24,31,0.12);
 }
+html[data-theme="dark"]{
+  --paper:#0F161C;
+  --surface:#182127;
+  --ink:#EDF1F5;
+  --ink-soft:#9AA7B1;
+  --line:#2A3640;
+  --brand:#2E8F7E;
+  --brand-soft:#15302B;
+  --pos:#2FBF86;
+  --pos-soft:#122E22;
+  --neg:#E0604A;
+  --neg-soft:#3A1F19;
+  --warn:#D9A648;
+  --warn-soft:#36290F;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--paper);color:var(--ink);
   font-family:'IBM Plex Sans',sans-serif;font-size:14px;line-height:1.5;
@@ -40,13 +63,16 @@ h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;letter-spacing:-0
 /* ---------- app shell (sidebar + main) ---------- */
 .app{display:flex;min-height:100vh;}
 .sidebar{width:248px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:60;}
+  display:flex;flex-direction:column;position:fixed;top:0;bottom:0;left:0;z-index:60;
+  transition:transform .25s ease;}
+.sidebar.collapsed{transform:translateX(-100%);}
 .side-brand{display:flex;align-items:center;gap:12px;padding:22px 22px 18px;}
 .side-brand .mark{font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--brand);
   width:44px;height:44px;border-radius:12px;background:var(--brand-soft);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .side-brand .txt{display:flex;flex-direction:column;line-height:1.2;}
-.side-brand .txt .name{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--ink);}
+.side-brand .txt .name{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--ink);
+  max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
 .side-brand .txt .tag{font-size:11px;color:var(--ink-soft);}
 .side-nav{flex:1;padding:8px 14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
 .nav-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:none;
@@ -60,10 +86,15 @@ h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;letter-spacing:-0
 .side-foot .btn.logout{background:none;border:1px solid var(--line);color:var(--ink-soft);}
 .side-foot .btn.logout:hover{border-color:var(--neg);color:var(--neg);}
 
-.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;margin-left:248px;
+  width:calc(100% - 248px);transition:margin-left .25s ease,width .25s ease;}
+body.sidebar-hidden .main{margin-left:0;width:100%;}
 header.top{position:sticky;top:0;z-index:50;background:var(--surface);
   border-bottom:1px solid var(--line);}
-.hamburger{display:none;}
+.hamburger{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
+  border:1px solid var(--line);background:var(--surface);border-radius:10px;color:var(--ink);
+  cursor:pointer;font-size:18px;padding:0;}
+.hamburger:hover{border-color:var(--brand);color:var(--brand);}
 .main header.top{display:flex;align-items:center;justify-content:space-between;
   gap:14px;padding:14px 28px;max-width:1180px;margin:0 auto;width:100%;box-sizing:border-box;}
 .main header.top .month-nav{margin:0 auto;}
@@ -277,6 +308,23 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   font-weight:600;}
 .tab-pane[hidden]{display:none;}
 
+/* ---------- configuración ---------- */
+.settings-list{display:flex;flex-direction:column;gap:10px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;box-shadow:var(--shadow);}
+.setting-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--ink);}
+.setting-desc{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+.setting-info{min-width:0;}
+.switch{position:relative;display:inline-block;width:52px;height:30px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch-slider{position:absolute;inset:0;cursor:pointer;background:var(--line);border-radius:30px;
+  transition:.2s;}
+.switch-slider::before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;
+  background:var(--surface);border-radius:50%;transition:.2s;box-shadow:0 2px 6px rgba(18,24,31,.2);}
+.switch input:checked + .switch-slider{background:var(--brand);}
+.switch input:checked + .switch-slider::before{transform:translateX(22px);}
+
 @media (max-width:980px){
   .charts-row{grid-template-columns:1fr;}
   .budget-grid{grid-template-columns:1fr;}
@@ -290,11 +338,9 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
 @media (max-width:640px){
   .sidebar{transform:translateX(-100%);transition:transform .25s ease;box-shadow:none;}
   .sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(18,24,31,.18);}
+  .main{width:100%;margin-left:0;}
   .side-backdrop{position:fixed;inset:0;background:rgba(18,24,31,.35);z-index:55;display:none;}
   .side-backdrop.open{display:block;}
-  .hamburger{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
-    border:1px solid var(--line);background:var(--surface);border-radius:10px;color:var(--ink);
-    cursor:pointer;font-size:18px;padding:0;}
   .main header.top{justify-content:flex-start;gap:10px;padding:14px 16px;}
   .main header.top .month-nav{margin:0 auto;}
   .head-actions .btn.secondary{display:none;}
@@ -414,7 +460,10 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
       <span class="mark">L</span>
-      <div class="txt"><span class="name">Libro</span><span class="tag">Finanzas personales</span></div>
+      <div class="txt">
+        <span class="name" id="sideEmail" title="Tu cuenta">…</span>
+        <span class="tag">Finanzas personales</span>
+      </div>
     </div>
     <nav class="side-nav">
       <button class="nav-item active" data-nav="dashboard">
@@ -431,6 +480,9 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
       </button>
       <button class="nav-item" data-nav="historicos">
         <span class="ico">▼</span><span>Históricos</span>
+      </button>
+      <button class="nav-item" data-nav="configuracion">
+        <span class="ico">⚙</span><span>Configuración</span>
       </button>
     </nav>
     <div class="side-foot">
@@ -560,6 +612,24 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
         <section>
           <div class="section-head"><h2>El año en un vistazo</h2></div>
           <div class="year-strip"><canvas id="yearChart" height="90"></canvas></div>
+        </section>
+      </section>
+
+      <section class="page" data-page="configuracion">
+        <section>
+          <div class="section-head"><h2>Configuración</h2></div>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-title">Modo oscuro</div>
+                <div class="setting-desc">Reduce el brillo de la pantalla en la aplicación.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="darkToggle">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
         </section>
       </section>
 
@@ -756,6 +826,11 @@ let remoteRef = null;
 function connected(){
   currentUser = firebase.auth().currentUser;
   if(!currentUser) return;
+  const el = document.getElementById("sideEmail");
+  if(el){
+    el.textContent = currentUser.email || "Mi cuenta";
+    el.title = currentUser.email || "Mi cuenta";
+  }
   fbDB = firebase.database();
   firebase.database().goOnline();
   attachRemoteListeners();
@@ -937,9 +1012,20 @@ function renderSavings(){
 }
 
 /* ============================================================
-   RENDER: donut de gastos por categoría
+   GRÁFICOS BASE
    ============================================================ */
 let donutChart = null;
+function cssVar(n){
+  return getComputedStyle(document.documentElement).getPropertyValue(n).trim() ||
+    ({"--line":"#E6EAE5","--ink-soft":"#87909B","--surface":"#FFFFFF","--pos-soft":"#FFFFFF"}[n]||"#fff");
+}
+function chartLine(){return cssVar("--line");}
+function chartTick(){return cssVar("--ink-soft");}
+function chartDonutBorder(){return cssVar("--surface");}
+
+/* ============================================================
+   RENDER: donut del mes
+   ============================================================ */
 function renderDonut(){
   const m = viewDate.getMonth(), y = viewDate.getFullYear();
   const gastos = txInMonth(viewDate, m, y).filter(t=>t.tipo==="Gasto");
@@ -957,7 +1043,7 @@ function renderDonut(){
   if(entries.length===0){
     legend.innerHTML = '<div class="empty" style="padding:10px 0;">Sin gastos este mes</div>';
     if(donutChart) donutChart.destroy();
-    donutChart = new Chart(ctx, {type:"doughnut", data:{labels:["Sin datos"],datasets:[{data:[1],backgroundColor:["#E2E5E1"]}]},
+    donutChart = new Chart(ctx, {type:"doughnut", data:{labels:["Sin datos"],datasets:[{data:[1],backgroundColor:[chartLine()]}]},
       options:{plugins:{legend:{display:false},tooltip:{enabled:false}}, cutout:"70%"}});
     return;
   }
@@ -970,7 +1056,7 @@ function renderDonut(){
   if(donutChart) donutChart.destroy();
   donutChart = new Chart(ctx, {
     type:"doughnut",
-    data:{labels, datasets:[{data, backgroundColor:colors, borderWidth:2, borderColor:"#fff"}]},
+    data:{labels, datasets:[{data, backgroundColor:colors, borderWidth:2, borderColor:chartDonutBorder()}]},
     options:{
       cutout:"68%",
       plugins:{legend:{display:false},
@@ -1009,11 +1095,11 @@ function renderTrend(){
     ]},
     options:{
       responsive:true,
-      plugins:{legend:{position:"bottom", labels:{boxWidth:9, boxHeight:9, font:{family:"IBM Plex Sans", size:11}}},
+      plugins:{legend:{position:"bottom", labels:{boxWidth:9, boxHeight:9, font:{family:"IBM Plex Sans", size:11}, color:chartTick()}},
         tooltip:{callbacks:{label:c=>c.dataset.label+": "+fmtEUR(c.raw)}}},
       scales:{
-        y:{ticks:{callback:v=>v+" €", font:{family:"IBM Plex Mono", size:10}}, grid:{color:"#EEF0ED"}},
-        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Sans", size:11}}}
+        y:{ticks:{callback:v=>v+" €", font:{family:"IBM Plex Mono", size:10}, color:chartTick()}, grid:{color:chartLine()}},
+        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Sans", size:11}, color:chartTick()}}
       }
     }
   });
@@ -1265,8 +1351,8 @@ function renderYear(){
     options:{
       plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>fmtEUR(c.raw)}}},
       scales:{
-        y:{ticks:{callback:v=>v+" €", font:{family:"IBM Plex Mono", size:10}}, grid:{color:"#EEF0ED"}},
-        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Sans", size:11}}}
+        y:{ticks:{callback:v=>v+" €", font:{family:"IBM Plex Mono", size:10}, color:chartTick()}, grid:{color:chartLine()}},
+        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Sans", size:11}, color:chartTick()}}
       }
     }
   });
@@ -1538,12 +1624,51 @@ function closeDrawer(){
   document.getElementById("sidebar").classList.remove("open");
   document.getElementById("sideBackdrop").classList.remove("open");
 }
+function isMobile(){ return window.innerWidth <= 640; }
+function toggleSidebar(){
+  const sb = document.getElementById("sidebar");
+  if(isMobile()){
+    sb.classList.toggle("open");
+    document.getElementById("sideBackdrop").classList.toggle("open", sb.classList.contains("open"));
+    return;
+  }
+  sb.classList.toggle("collapsed");
+  document.body.classList.toggle("sidebar-hidden", sb.classList.contains("collapsed"));
+}
 document.querySelectorAll(".nav-item").forEach(item=>{
   item.addEventListener("click", ()=>navigate(item.dataset.nav));
 });
-document.getElementById("menuBtn").addEventListener("click", openDrawer);
+document.getElementById("menuBtn").addEventListener("click", toggleSidebar);
 document.getElementById("sideBackdrop").addEventListener("click", closeDrawer);
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeDrawer(); });
+
+/* ============================================================
+   CONFIGURACIÓN (modo oscuro)
+   ============================================================ */
+function applySavedTheme(){
+  const saved = localStorage.getItem("libro_theme");
+  const dark = saved === null ? matchMedia("(prefers-color-scheme: dark)").matches : saved === "dark";
+  setTheme(dark);
+}
+function setTheme(dark){
+  let theme = dark ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("libro_theme", theme);
+  const t = document.getElementById("darkToggle");
+  if(t) t.checked = dark;
+  refreshChartsTheme();
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content", dark ? "#0F161C" : "#146356");
+}
+function refreshChartsTheme(){
+  if(typeof Chart === "undefined") return;
+  renderDonut();
+  renderTrend();
+  renderYear();
+}
+document.getElementById("darkToggle").addEventListener("change", e=>{
+  setTheme(e.target.checked);
+});
 
 /* ============================================================
    AUTENTICACIÓN (Firebase Auth)
@@ -1657,6 +1782,14 @@ if(typeof firebase !== "undefined" && firebase.initializeApp){
 } else {
   document.body.innerHTML = '<div style="padding:40px;font-family:monospace;color:var(--neg);">Error: SDK de Firebase no cargado. Asegúrate de tener firebase-*.js junto a index.html.</div>';
 }
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+
+applySavedTheme();
 
 })();
 </script>

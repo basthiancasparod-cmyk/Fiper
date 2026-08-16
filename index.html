@@ -100,14 +100,26 @@ header.top{position:sticky;top:0;z-index:50;background:var(--surface);
 .main header.top .month-nav{margin:0 auto;}
 .head-actions{display:flex;gap:8px;align-items:center;}
 .head-actions .only-mes{display:none;}
+
+/* ---------- botón flotante nuevo movimiento ---------- */
+.fab{position:fixed;right:22px;bottom:24px;z-index:120;width:58px;height:58px;border-radius:50%;
+  border:none;background:var(--brand);color:#fff;font-size:26px;font-weight:500;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 6px 20px -6px rgba(20,99,86,.6),0 2px 6px rgba(18,24,31,.2);
+  transition:transform .22s ease,opacity .22s ease,background .15s;}
+.fab:hover{background:#0F4C42;}
+.fab:active{transform:scale(.94);}
+.fab.hidden-fab{transform:translateY(140%);opacity:0;pointer-events:none;}
 .content{padding:24px 28px 80px;max-width:1180px;width:100%;box-sizing:border-box;margin:0 auto;}
 .page{display:none;}
 .page.active{display:block;}
 .page > section:first-child{margin-top:0;}
-.month-nav{display:flex;align-items:center;gap:8px;}
-.month-nav select{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:var(--ink);
-  background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;}
-.month-nav select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);}
+.month-nav{display:flex;align-items:center;gap:10px;}
+.month-nav button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px;
+  display:flex;align-items:center;justify-content:center;transition:.15s;}
+.month-nav button:hover{background:var(--brand);color:#fff;border-color:var(--brand);}
+.month-nav .label{font-family:'Fraunces',serif;font-size:17px;font-weight:600;min-width:150px;text-align:center;text-transform:capitalize;}
 
 section{margin-top:34px;}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
@@ -365,6 +377,7 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   .donut-wrap canvas{max-width:170px;max-height:170px;}
   .legend{width:100%;}
   .legend .row{justify-content:center;}
+  .month-nav .label{min-width:0;font-size:15px;}
   .month-nav{justify-content:center;}
   .budget-summary{gap:12px;}
   .budget-summary .item{min-width:100%;}
@@ -396,6 +409,7 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
 @media (max-width:420px){
   .kpis{grid-template-columns:1fr 1fr;gap:10px;}
   .proj-kpis{grid-template-columns:1fr;}
+  .month-nav .label{font-size:14px;}
   .head-actions .btn{flex:1;}
 }
 
@@ -506,12 +520,12 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
     <header class="top">
       <button class="hamburger" id="menuBtn" aria-label="Abrir menú">☰</button>
       <div class="month-nav">
-        <select id="monthSelect" aria-label="Mes"></select>
-        <select id="yearSelect" aria-label="Año"></select>
+        <button id="prevMonth" aria-label="Mes anterior">‹</button>
+        <span class="label" id="monthLabel">Enero 2026</span>
+        <button id="nextMonth" aria-label="Mes siguiente">›</button>
       </div>
       <div class="head-actions">
         <button class="btn secondary only-mes" id="openCategorias">Categorías</button>
-        <button class="btn" id="openNuevo">＋ Movimiento</button>
       </div>
     </header>
 
@@ -642,6 +656,8 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
 
     </div>
   </div>
+
+  <button class="fab" id="fabNuevo" aria-label="Nuevo movimiento">＋</button>
 </div>
 
 <!-- Modal: nuevo/editar movimiento -->
@@ -944,25 +960,15 @@ function sum(list){ return list.reduce((s,t)=>s+Number(t.importe||0),0); }
    RENDER: cabecera / navegación de mes
    ============================================================ */
 function renderMonthLabel(){
-  const msel = document.getElementById("monthSelect");
-  if(msel.options.length===0){
-    MESES.forEach((n,i)=>msel.add(new Option(n.charAt(0).toUpperCase()+n.slice(1), i)));
-  }
-  msel.value = String(viewDate.getMonth());
-  const ysel = document.getElementById("yearSelect");
-  if(ysel.options.length===0){
-    const y = new Date().getFullYear();
-    for(let yy=y-4; yy<=y+1; yy++) ysel.add(new Option(String(yy), yy));
-  }
-  ysel.value = String(viewDate.getFullYear());
-  if(!ysel.value) ysel.value = String(viewDate.getFullYear());
+  document.getElementById("monthLabel").textContent =
+    MESES[viewDate.getMonth()] + " " + viewDate.getFullYear();
 }
-document.getElementById("monthSelect").addEventListener("change", e=>{
-  viewDate.setMonth(Number(e.target.value)); renderAll();
-});
-document.getElementById("yearSelect").addEventListener("change", e=>{
-  viewDate.setFullYear(Number(e.target.value)); renderAll();
-});
+document.getElementById("prevMonth").onclick = ()=>{
+  viewDate.setMonth(viewDate.getMonth()-1); renderAll();
+};
+document.getElementById("nextMonth").onclick = ()=>{
+  viewDate.setMonth(viewDate.getMonth()+1); renderAll();
+};
 
 /* ============================================================
    RENDER: KPIs
@@ -1528,9 +1534,25 @@ function openTxModal(editId){
   }
   overlayTx.classList.add("show");
 }
-document.getElementById("openNuevo").onclick = ()=>openTxModal(null);
+document.getElementById("fabNuevo").onclick = ()=>openTxModal(null);
 document.getElementById("cancelTx").onclick = ()=>overlayTx.classList.remove("show");
 overlayTx.addEventListener("click", e=>{ if(e.target===overlayTx) overlayTx.classList.remove("show"); });
+
+// ocultar/mostrar el botón flotante según el sentido del scroll
+(function(){
+  const fab = document.getElementById("fabNuevo");
+  if(!fab) return;
+  let lastY = window.pageYOffset, ticking = false;
+  function onScroll(){
+    const y = window.pageYOffset;
+    fab.classList.toggle("hidden-fab", y > lastY && y > 120);
+    lastY = y;
+    ticking = false;
+  }
+  window.addEventListener("scroll", ()=>{
+    if(!ticking){ requestAnimationFrame(onScroll); ticking = true; }
+  }, {passive:true});
+})();
 
 document.getElementById("saveTx").onclick = ()=>{
   const fecha = document.getElementById("txFecha").value;

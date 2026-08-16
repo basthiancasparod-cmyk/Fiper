@@ -633,17 +633,29 @@ function setSyncStatus(state){
   el.textContent = state==="synced" ? "sincronizado" : state==="offline" ? "sin conexión" : "sincronizando";
 }
 
+function clean(data){
+  // elimina propiedades con valor undefined (Firebase las rechaza)
+  try{
+    const arr = JSON.parse(JSON.stringify(data));
+    if(Array.isArray(arr)) return arr.map(item => {
+      if(item && item.tipo !== undefined) return ensureCategoriaFields(item);
+      return item;
+    });
+    return arr;
+  }catch(e){ return data; }
+}
+
 function writeCats(){
   if(!fbReady() || !currentUser) return;
   setSyncStatus("syncing");
-  firebase.database().ref(dbPath()+"/categorias").set(categorias)
+  firebase.database().ref(dbPath()+"/categorias").set(clean(categorias))
     .then(()=>setSyncStatus("synced"))
     .catch(()=>setSyncStatus("offline"));
 }
 function writeTx(){
   if(!fbReady() || !currentUser) return;
   setSyncStatus("syncing");
-  firebase.database().ref(dbPath()+"/transacciones").set(transacciones)
+  firebase.database().ref(dbPath()+"/transacciones").set(clean(transacciones))
     .then(()=>setSyncStatus("synced"))
     .catch(()=>setSyncStatus("offline"));
 }
@@ -688,9 +700,9 @@ function initialImport(){
         setSyncStatus("synced");
         return;
       }
-      if(Array.isArray(lc) && lc.length) updates["/categorias"] = lc;
+      if(Array.isArray(lc) && lc.length) updates["/categorias"] = clean(lc);
       else updates["/categorias"] = DEFAULT_CATS.map(c=>({...c}));
-      if(Array.isArray(lt)) updates["/transacciones"] = lt;
+      if(Array.isArray(lt)) updates["/transacciones"] = clean(lt);
       root.update(updates).then(()=>{
         localStorage.setItem(LS_MARK, "1");
         setSyncStatus("synced");
@@ -743,6 +755,18 @@ function normalizeOrden(){
       idx++;
     }
   });
+}
+
+function ensureCategoriaFields(c){
+  // completa campos obligatorios para que Firebase reciba objetos limpios
+  return {
+    nombre: c.nombre,
+    tipo: c.tipo,
+    color: c.color || "#8B94A3",
+    presupuesto: Number(c.presupuesto)||0,
+    nota: c.nota || "",
+    orden: typeof c.orden === "number" ? c.orden : 0
+  };
 }
 
 // fecha de referencia = mes que se está viendo

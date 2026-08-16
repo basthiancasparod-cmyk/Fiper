@@ -140,7 +140,7 @@ section{margin-top:34px;}
 .legend .amt{font-family:'IBM Plex Mono',monospace;}
 
 /* ---------- budgets ---------- */
-.budget-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;}
+.budget-grid{display:grid;grid-template-columns:1fr;gap:10px 24px;}
 .budget-row{padding:10px 0;border-bottom:1px solid var(--line);}
 .budget-row:last-child{border-bottom:none;}
 .budget-top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;}
@@ -165,6 +165,10 @@ section{margin-top:34px;}
 .budget-row.drop-target{outline:2px dashed var(--brand);outline-offset:-2px;border-radius:6px;}
 .move-btn{font-size:13px;padding:2px 3px;line-height:1;}
 .move-btn:disabled{opacity:.28;cursor:default;}
+.fijo-toggle{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;flex-shrink:0;}
+.fijo-toggle button{padding:4px 10px;background:var(--paper);border:none;cursor:pointer;
+  font-size:11px;font-weight:500;color:var(--ink-soft);font-family:'IBM Plex Sans',sans-serif;transition:.15s;}
+.fijo-toggle button.active{background:var(--brand);color:#fff;}
 
 .budget-summary{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;
   padding:12px 14px;border:1px solid var(--line);border-radius:8px;
@@ -362,6 +366,8 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   .budget-summary{gap:12px;}
   .budget-summary .item{min-width:100%;}
   .budget-summary .item input{width:100%;}
+  .budget-controls{flex-wrap:wrap;}
+  .budget-note{flex-basis:100%;order:3;}
   .sv-legends{grid-template-columns:1fr;}
   .rv-col-head{display:none;}
   .rv-group{margin-top:12px;padding-left:2px;}
@@ -722,15 +728,15 @@ const DEFAULT_CATS = [
   {nombre:"Ingresos extra", tipo:"Ingreso", color:"#3FB88C", presupuesto:0, nota:""},
   {nombre:"Inversiones", tipo:"Ingreso", color:"#66C9A6", presupuesto:0, nota:""},
   {nombre:"Otros ingresos", tipo:"Ingreso", color:"#8FDBBF", presupuesto:0, nota:""},
-  {nombre:"Vivienda", tipo:"Gasto", color:"#146356", presupuesto:0, nota:""},
-  {nombre:"Suministros", tipo:"Gasto", color:"#2E7D6B", presupuesto:0, nota:""},
-  {nombre:"Alimentación", tipo:"Gasto", color:"#C2452F", presupuesto:0, nota:""},
-  {nombre:"Transporte", tipo:"Gasto", color:"#D97757", presupuesto:0, nota:""},
-  {nombre:"Salud", tipo:"Gasto", color:"#C0872A", presupuesto:0, nota:""},
-  {nombre:"Ocio y restauración", tipo:"Gasto", color:"#B08A2E", presupuesto:0, nota:""},
-  {nombre:"Suscripciones", tipo:"Gasto", color:"#8A6FBF", presupuesto:0, nota:""},
-  {nombre:"Ropa y cuidado personal", tipo:"Gasto", color:"#6A7FDB", presupuesto:0, nota:""},
-  {nombre:"Otros gastos", tipo:"Gasto", color:"#8B94A3", presupuesto:0, nota:""},
+  {nombre:"Vivienda", tipo:"Gasto", color:"#146356", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Suministros", tipo:"Gasto", color:"#2E7D6B", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Alimentación", tipo:"Gasto", color:"#C2452F", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Transporte", tipo:"Gasto", color:"#D97757", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Salud", tipo:"Gasto", color:"#C0872A", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Ocio y restauración", tipo:"Gasto", color:"#B08A2E", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Suscripciones", tipo:"Gasto", color:"#8A6FBF", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Ropa y cuidado personal", tipo:"Gasto", color:"#6A7FDB", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Otros gastos", tipo:"Gasto", color:"#8B94A3", presupuesto:0, nota:"", fijo:false},
 ];
 
 let categorias = [];
@@ -880,6 +886,7 @@ function ensureCategoriaFields(c){
     color: c.color || "#8B94A3",
     presupuesto: Number(c.presupuesto)||0,
     nota: c.nota || "",
+    fijo: c.tipo === "Gasto" ? !!c.fijo : false,
     orden: typeof c.orden === "number" ? c.orden : 0
   };
 }
@@ -1138,6 +1145,7 @@ function renderBudgets(){
     const pctGastado = presu>0 ? gastado/presu*100 : 0;
     const pct = Math.min(100, pctGastado);
     const barColor = presu>0 ? limitColor(pctGastado) : "";
+    const fijo = !!c.fijo;
     return `<div class="budget-row">
       <div class="budget-top">
         <span class="drag-handle" data-reorder="${i}" title="Arrastrar para reordenar">⠿</span>
@@ -1146,6 +1154,10 @@ function renderBudgets(){
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${presu>0?pct:0}%;background:${barColor||'var(--brand)'}"></div></div>
       <div class="budget-controls">
+        <span class="fijo-toggle" title="Gastos fijos se repiten cada mes">
+          <button type="button" class="${fijo?'active':''}" data-fijo="1" data-cat="${esc(c.nombre)}">Fijo</button>
+          <button type="button" class="${!fijo?'active':''}" data-fijo="0" data-cat="${esc(c.nombre)}">Variable</button>
+        </span>
         <input type="text" class="budget-note" data-cat="${esc(c.nombre)}"
           value="${esc(c.nota||'')}" placeholder="Nota: qué incluye esta categoría…">
         <span class="budget-actions">
@@ -1198,6 +1210,16 @@ function renderBudgets(){
       gastoCats.forEach((c,i)=>c.orden=i);
       writeCats();
       renderBudgets(); renderRV(); renderYear();
+    });
+  });
+
+  grid.querySelectorAll(".fijo-toggle button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const cat = catByName(btn.dataset.cat);
+      if(!cat) return;
+      cat.fijo = btn.dataset.fijo === "1";
+      writeCats();
+      renderBudgets();
     });
   });
 
@@ -1579,7 +1601,7 @@ document.getElementById("addCatBtn").onclick = ()=>{
   const orden = tipo==="Gasto"
     ? (categorias.filter(c=>c.tipo==="Gasto").reduce((m,c)=>Math.max(m, c.orden||0),-1)+1)
     : undefined;
-  categorias.push({nombre, tipo, color, presupuesto:0, nota:"", orden});
+  categorias.push({nombre, tipo, color, presupuesto:0, nota:"", fijo:tipo==="Gasto"?false:undefined, orden});
   writeCats();
   document.getElementById("newCatName").value = "";
   renderAll(); renderCatList();

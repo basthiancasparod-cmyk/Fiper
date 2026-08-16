@@ -638,7 +638,7 @@ function clean(data){
   try{
     const arr = JSON.parse(JSON.stringify(data));
     if(Array.isArray(arr)) return arr.map(item => {
-      if(item && item.tipo !== undefined) return ensureCategoriaFields(item);
+      if(item && typeof item.nombre === "string") return ensureCategoriaFields(item);
       return item;
     });
     return arr;

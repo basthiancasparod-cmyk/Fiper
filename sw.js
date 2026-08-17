@@ -1,4 +1,4 @@
-const CACHE_NAME = "libro-v1";
+const CACHE_NAME = "libro-v2";
 const ASSETS = [
   "./index.html",
   "./manifest.webmanifest",

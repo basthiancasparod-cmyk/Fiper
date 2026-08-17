@@ -313,6 +313,22 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   box-shadow:var(--shadow);}
 .table-scroll table{min-width:640px;box-shadow:none;}
 
+/* ---------- movimientos: tarjetas (móvil) ---------- */
+.tx-cards{display:none;flex-direction:column;gap:8px;}
+.tx-card{display:flex;align-items:center;gap:12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;
+  box-shadow:var(--shadow);}
+.tx-card .tc-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.tx-card .tc-meta{display:flex;align-items:center;gap:8px;}
+.tx-card .tc-date{font-size:11px;color:var(--ink-soft);}
+.tx-card .tc-desc{font-size:13.5px;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tx-card .tc-amt{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px;
+  white-space:nowrap;text-align:right;}
+.tx-card .tc-amt.pos{color:var(--pos);}
+.tx-card .tc-amt.neg{color:var(--neg);}
+.tx-card .tc-actions{display:flex;gap:6px;flex-shrink:0;}
+
 /* ---------- pestañas ---------- */
 .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:-6px 0 18px;overflow-x:auto;}
 .tab{flex:1;padding:11px 14px;border:1px solid var(--line);border-bottom:none;border-radius:9px 9px 0 0;
@@ -385,6 +401,8 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   .budget-controls{flex-wrap:wrap;}
   .budget-note{flex-basis:100%;order:3;}
   .sv-legends{grid-template-columns:1fr;}
+  .table-scroll{display:none;}
+  .tx-cards{display:flex;}
   .rv-col-head{display:none;}
   .rv-group{margin-top:12px;padding-left:2px;}
   .rv-row{grid-template-columns:1fr auto auto auto;gap:4px 10px;padding:9px 2px;align-items:end;}
@@ -626,6 +644,7 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
               <tbody id="txBody"></tbody>
             </table>
           </div>
+          <div class="tx-cards" id="txCards"></div>
         </section>
       </section>
 
@@ -1433,10 +1452,34 @@ function renderTable(){
   });
 
   const body = document.getElementById("txBody");
+  const cards = document.getElementById("txCards");
   if(list.length===0){
     body.innerHTML = `<tr><td colspan="5"><div class="empty">Sin movimientos que coincidan con el filtro.</div></td></tr>`;
+    cards.innerHTML = `<div class="empty">Sin movimientos que coincidan con el filtro.</div>`;
     return;
   }
+
+  const cardHtml = list.map(t=>{
+    const d = new Date(t.fecha+"T00:00:00");
+    const fechaCorta = d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit"});
+    const sign = t.tipo==="Ingreso" ? "+" : "−";
+    const cls = t.tipo==="Ingreso" ? "pos" : "neg";
+    const col = catColor(t.categoria);
+    return `<div class="tx-card">
+      <div class="tc-info">
+        <div class="tc-meta">
+          <span class="pill" style="background:${col}22;color:${col}">${esc(t.categoria)}</span>
+          <span class="tc-date">${fechaCorta}</span>
+        </div>
+        <span class="tc-desc" title="${esc(t.descripcion)||""}">${esc(t.descripcion) || "—"}</span>
+      </div>
+      <span class="tc-amt ${cls}">${sign} ${fmtEUR(t.importe)}</span>
+      <div class="tc-actions">
+        <button class="icon-btn" data-edit="${t.id}" title="Editar">✎</button>
+        <button class="icon-btn" data-del="${t.id}" title="Eliminar">✕</button>
+      </div>
+    </div>`;
+  }).join("");
 
   body.innerHTML = list.map(t=>{
     const d = new Date(t.fecha+"T00:00:00");
@@ -1455,8 +1498,16 @@ function renderTable(){
     </tr>`;
   }).join("");
 
+  cards.innerHTML = cardHtml;
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTxModal(b.dataset.edit));
   body.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    if(confirm("¿Eliminar este movimiento?")){
+      transacciones = transacciones.filter(t=>t.id!==b.dataset.del);
+      writeTx(); renderAll();
+    }
+  });
+  cards.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openTxModal(b.dataset.edit));
+  cards.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
     if(confirm("¿Eliminar este movimiento?")){
       transacciones = transacciones.filter(t=>t.id!==b.dataset.del);
       writeTx(); renderAll();

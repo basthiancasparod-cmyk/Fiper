@@ -1533,10 +1533,17 @@ function openTxModal(editId){
     document.getElementById("txImporte").value = "";
   }
   overlayTx.classList.add("show");
+  const fab = document.getElementById("fabNuevo");
+  if(fab) fab.classList.add("hidden-fab");
+}
+function closeTxModal(){
+  overlayTx.classList.remove("show");
+  const fab = document.getElementById("fabNuevo");
+  if(fab) fab.classList.remove("hidden-fab");
 }
 document.getElementById("fabNuevo").onclick = ()=>openTxModal(null);
-document.getElementById("cancelTx").onclick = ()=>overlayTx.classList.remove("show");
-overlayTx.addEventListener("click", e=>{ if(e.target===overlayTx) overlayTx.classList.remove("show"); });
+document.getElementById("cancelTx").onclick = ()=>closeTxModal();
+overlayTx.addEventListener("click", e=>{ if(e.target===overlayTx) closeTxModal(); });
 
 // ocultar/mostrar el botón flotante según el sentido del scroll
 (function(){
@@ -1571,7 +1578,7 @@ document.getElementById("saveTx").onclick = ()=>{
     transacciones.push({id:uid(), fecha, tipo:currentTipo, categoria, descripcion, importe});
   }
   writeTx();
-  overlayTx.classList.remove("show");
+  closeTxModal();
   // saltar a ver el mes del movimiento guardado
   const d = new Date(fecha+"T00:00:00");
   viewDate = new Date(d.getFullYear(), d.getMonth(), 1);

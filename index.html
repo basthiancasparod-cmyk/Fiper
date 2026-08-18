@@ -152,6 +152,12 @@ section{margin-top:34px;}
 
 /* ---------- budgets ---------- */
 .budget-grid{display:grid;grid-template-columns:1fr;gap:10px 24px;}
+.budget-group-title{display:flex;align-items:center;gap:8px;margin-top:8px;padding:4px 2px 0;
+  font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--ink-soft);
+  border-bottom:2px solid var(--ink);padding-bottom:8px;}
+.budget-group-title .cnt{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);}
+.budget-group-title:first-child{margin-top:0;}
+.budget-group-title + .budget-row{margin-top:6px;}
 .budget-row{padding:10px 0;border-bottom:1px solid var(--line);}
 .budget-row:last-child{border-bottom:none;}
 .budget-top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px;}
@@ -1244,16 +1250,19 @@ function renderBudgets(){
     ${falta<0 ? `<div class="warn">El presupuesto supera el ingreso en ${fmtEUR(-falta)}. Ajusta los límites o aumenta los ingresos.</div>` : ""}
   `;
 
-  grid.innerHTML = gastoCats.map((c,i)=>{
+  const fijos = gastoCats.filter(c=>!!c.fijo);
+  const variables = gastoCats.filter(c=>!c.fijo);
+
+  function rowHtml(c, idxInGroup, groupLen){
     const gastado = sum(list.filter(t=>t.categoria===c.nombre));
     const presu = Number(c.presupuesto)||0;
     const pctGastado = presu>0 ? gastado/presu*100 : 0;
     const pct = Math.min(100, pctGastado);
     const barColor = presu>0 ? limitColor(pctGastado) : "";
     const fijo = !!c.fijo;
-    return `<div class="budget-row">
+    return `<div class="budget-row" data-cat="${esc(c.nombre)}">
       <div class="budget-top">
-        <span class="drag-handle" data-reorder="${i}" title="Arrastrar para reordenar">⠿</span>
+        <span class="drag-handle" data-reorder="${esc(c.nombre)}" data-cat="${esc(c.nombre)}" title="Arrastrar para reordenar">⠿</span>
         <span class="name">${esc(c.nombre)}</span>
         <span class="nums">${fmtEUR(gastado)} ${presu>0 ? "/ "+fmtEUR(presu) : ""}</span>
       </div>
@@ -1266,14 +1275,28 @@ function renderBudgets(){
         <input type="text" class="budget-note" data-cat="${esc(c.nombre)}"
           value="${esc(c.nota||'')}" placeholder="Nota: qué incluye esta categoría…">
         <span class="budget-actions">
-          <button class="icon-btn move-btn" data-move="up" data-idx="${i}" title="Mover arriba" ${i===0?'disabled':''}>↑</button>
-          <button class="icon-btn move-btn" data-move="dn" data-idx="${i}" title="Mover abajo" ${i===gastoCats.length-1?'disabled':''}>↓</button>
+          <button class="icon-btn move-btn" data-move="up" data-cat="${esc(c.nombre)}" title="Mover arriba" ${idxInGroup===0?'disabled':''}>↑</button>
+          <button class="icon-btn move-btn" data-move="dn" data-cat="${esc(c.nombre)}" title="Mover abajo" ${idxInGroup===groupLen-1?'disabled':''}>↓</button>
           <input type="number" class="budget-edit" data-cat="${esc(c.nombre)}" min="0" step="10"
             value="${presu>0?presu:''}" placeholder="límite €">
         </span>
       </div>
     </div>`;
-  }).join("");
+  }
+
+  let html = "";
+  if(fijos.length){
+    html += `<div class="budget-group-title">Gastos fijos <span class="cnt">${fijos.length}</span></div>`;
+    html += fijos.map((c,i)=>rowHtml(c, i, fijos.length)).join("");
+  }
+  if(variables.length){
+    html += `<div class="budget-group-title">Gastos variables <span class="cnt">${variables.length}</span></div>`;
+    html += variables.map((c,i)=>rowHtml(c, i, variables.length)).join("");
+  }
+  if(!fijos.length && !variables.length){
+    html = `<div class="empty">Aún no hay categorías de gasto.</div>`;
+  }
+  grid.innerHTML = html;
 
   grid.querySelectorAll(".budget-note").forEach(inp=>{
     inp.addEventListener("change", e=>{
@@ -1284,11 +1307,14 @@ function renderBudgets(){
 
   grid.querySelectorAll(".move-btn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
-      const idx = Number(btn.dataset.idx);
+      const cat = catByName(btn.dataset.cat);
+      if(!cat) return;
+      const group = !!cat.fijo ? fijos : variables;
+      const idx = group.findIndex(c=>c.nombre===cat.nombre);
       const dir = btn.dataset.move === "up" ? -1 : 1;
       const other = idx + dir;
-      if(other<0 || other>=gastoCats.length) return;
-      const a = gastoCats[idx], b = gastoCats[other];
+      if(other<0 || other>=group.length) return;
+      const a = group[idx], b = group[other];
       const tmp = a.orden;
       a.orden = b.orden;
       b.orden = tmp;
@@ -1297,7 +1323,7 @@ function renderBudgets(){
     });
   });
   grid.querySelectorAll("[data-reorder]").forEach(h=>{
-    h.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", h.dataset.reorder); h.style.opacity=".4"; });
+    h.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/plain", h.dataset.cat); h.style.opacity=".4"; });
     h.addEventListener("dragend", ()=>{ h.style.opacity="1"; });
     h.draggable = true;
   });
@@ -1306,12 +1332,18 @@ function renderBudgets(){
     r.addEventListener("dragleave", ()=>r.classList.remove("drop-target"));
     r.addEventListener("drop", e=>{
       e.preventDefault(); r.classList.remove("drop-target");
-      const from = Number(e.dataTransfer.getData("text/plain"));
-      if(isNaN(from)) return;
-      const to = [...grid.querySelectorAll(".budget-row")].indexOf(r);
-      if(from===to) return;
-      const moved = gastoCats.splice(from,1)[0];
-      gastoCats.splice(to,0,moved);
+      const name = e.dataTransfer.getData("text/plain");
+      const targetCat = catByName(r.dataset.cat);
+      const fromCat = catByName(name);
+      if(!targetCat || !fromCat || fromCat.nombre===targetCat.nombre) return;
+      const group = !!targetCat.fijo ? fijos : variables;
+      const from = group.findIndex(c=>c.nombre===fromCat.nombre);
+      const to = group.findIndex(c=>c.nombre===targetCat.nombre);
+      if(from<0 || to<0 || from===to) return;
+      const moved = group.splice(from,1)[0];
+      group.splice(to,0,moved);
+      const ordered = fijos.concat(variables).map(c=>c.nombre);
+      gastoCats.sort((a,b)=> ordered.indexOf(a.nombre) - ordered.indexOf(b.nombre));
       gastoCats.forEach((c,i)=>c.orden=i);
       writeCats();
       renderBudgets(); renderRV(); renderYear();

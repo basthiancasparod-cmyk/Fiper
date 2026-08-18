@@ -346,6 +346,19 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
 .catlist .item .swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
 .new-cat{display:flex;gap:6px;}
 .new-cat input{flex:1;}
+.new-cat input#newCatEmoji{flex:0 0 58px;text-align:center;}
+.catlist .item .cat-emoji{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);border-radius:6px;background:var(--surface);cursor:pointer;font-size:17px;}
+.catlist .item .cat-emoji:hover{border-color:var(--brand);}
+.emoji-picker{display:none;flex-direction:column;gap:8px;margin:0 0 14px;padding:10px;
+  border:1px solid var(--line);border-radius:8px;background:var(--paper);}
+.emoji-picker.show{display:flex;}
+.emoji-picker .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);}
+.emoji-picker .emoji-opt{border:none;background:none;font-size:20px;cursor:pointer;padding:3px;border-radius:6px;}
+.emoji-picker .emoji-opt:hover{background:var(--brand-soft);}
+.emoji-picker .emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:3px;}
+.emoji-free{display:flex;gap:6px;}
+.emoji-free input{flex:1;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);}
 
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);
   box-shadow:var(--shadow);}
@@ -761,8 +774,14 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
   <div class="modal">
     <h3>Categorías</h3>
     <div class="catlist" id="catList"></div>
+    <div class="emoji-picker" id="emojiPicker">
+      <span class="lbl">Emoji de la categoría</span>
+      <div class="emoji-free"><input type="text" id="emojiFree" placeholder="Pega cualquier emoji…" maxlength="16"><button type="button" class="btn secondary" id="emojiFreeBtn">Aplicar</button></div>
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
     <div class="new-cat">
       <input type="text" id="newCatName" placeholder="Nueva categoría">
+      <input type="text" id="newCatEmoji" placeholder="👁️" maxlength="8" title="Emoji de la categoría">
       <select id="newCatTipo"><option value="Gasto">Gasto</option><option value="Ingreso">Ingreso</option></select>
       <button class="btn secondary" id="addCatBtn">Añadir</button>
     </div>
@@ -814,19 +833,19 @@ function localTx(){
 }
 
 const DEFAULT_CATS = [
-  {nombre:"Nómina", tipo:"Ingreso", color:"#1F9D6D", nota:""},
-  {nombre:"Ingresos extra", tipo:"Ingreso", color:"#3FB88C", nota:""},
-  {nombre:"Inversiones", tipo:"Ingreso", color:"#66C9A6", nota:""},
-  {nombre:"Otros ingresos", tipo:"Ingreso", color:"#8FDBBF", nota:""},
-  {nombre:"Vivienda", tipo:"Gasto", color:"#146356", nota:"", fijo:false},
-  {nombre:"Suministros", tipo:"Gasto", color:"#2E7D6B", nota:"", fijo:false},
-  {nombre:"Alimentación", tipo:"Gasto", color:"#C2452F", nota:"", fijo:false},
-  {nombre:"Transporte", tipo:"Gasto", color:"#D97757", nota:"", fijo:false},
-  {nombre:"Salud", tipo:"Gasto", color:"#C0872A", nota:"", fijo:false},
-  {nombre:"Ocio y restauración", tipo:"Gasto", color:"#B08A2E", nota:"", fijo:false},
-  {nombre:"Suscripciones", tipo:"Gasto", color:"#8A6FBF", nota:"", fijo:false},
-  {nombre:"Ropa y cuidado personal", tipo:"Gasto", color:"#6A7FDB", nota:"", fijo:false},
-  {nombre:"Otros gastos", tipo:"Gasto", color:"#8B94A3", nota:"", fijo:false},
+  {nombre:"Nómina", tipo:"Ingreso", emoji:"💼", color:"#1F9D6D", nota:""},
+  {nombre:"Ingresos extra", tipo:"Ingreso", emoji:"💰", color:"#3FB88C", nota:""},
+  {nombre:"Inversiones", tipo:"Ingreso", emoji:"📈", color:"#66C9A6", nota:""},
+  {nombre:"Otros ingresos", tipo:"Ingreso", emoji:"✨", color:"#8FDBBF", nota:""},
+  {nombre:"Vivienda", tipo:"Gasto", emoji:"🏠", color:"#146356", nota:"", fijo:false},
+  {nombre:"Suministros", tipo:"Gasto", emoji:"⚡", color:"#2E7D6B", nota:"", fijo:false},
+  {nombre:"Alimentación", tipo:"Gasto", emoji:"🛒", color:"#C2452F", nota:"", fijo:false},
+  {nombre:"Transporte", tipo:"Gasto", emoji:"🚌", color:"#D97757", nota:"", fijo:false},
+  {nombre:"Salud", tipo:"Gasto", emoji:"💊", color:"#C0872A", nota:"", fijo:false},
+  {nombre:"Ocio y restauración", tipo:"Gasto", emoji:"🍽️", color:"#B08A2E", nota:"", fijo:false},
+  {nombre:"Suscripciones", tipo:"Gasto", emoji:"🔁", color:"#8A6FBF", nota:"", fijo:false},
+  {nombre:"Ropa y cuidado personal", tipo:"Gasto", emoji:"👕", color:"#6A7FDB", nota:"", fijo:false},
+  {nombre:"Otros gastos", tipo:"Gasto", emoji:"🧾", color:"#8B94A3", nota:"", fijo:false},
 ];
 
 let categorias = [];
@@ -1024,6 +1043,7 @@ function ensureCategoriaFields(c){
   return {
     nombre: c.nombre,
     tipo: c.tipo,
+    emoji: c.emoji || "",
     color: c.color || "#8B94A3",
     nota: c.nota || "",
     fijo: c.tipo === "Gasto" ? !!c.fijo : false,
@@ -1048,6 +1068,8 @@ const MESES_ABR = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 function catByName(n){ return categorias.find(c=>c.nombre===n); }
+function catEmoji(n){ const c = catByName(n); return c && c.emoji ? c.emoji : ""; }
+function emo(n){ const e = catEmoji(n); return e ? e+" " : ""; }
 function catColor(n){ const c = catByName(n); return c ? c.color : "#8B94A3"; }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
@@ -1180,7 +1202,7 @@ function renderRecent(){
     return `<div class="recent-row" data-nav="movimientos">
       <span class="recent-ico ${pos?'pos':'neg'}">${pos ? "↑" : "↓"}</span>
       <div class="recent-info">
-        <div class="rcat">${esc(t.categoria)}</div>
+        <div class="rcat">${emo(t.categoria)}${esc(t.categoria)}</div>
         <div class="rdesc ${desc?'':'no-desc'}">${desc ? esc(desc) : "Sin descripción"}</div>
       </div>
       <span class="recent-amt ${pos?'pos':'neg'}">${sign} ${fmtEUR(t.importe)}</span>
@@ -1250,7 +1272,7 @@ function renderDonut(){
   legend.innerHTML = entries.slice(0,7).map(([name,val])=>{
     const pct = total>0 ? Math.round(val/total*100) : 0;
     return `<div class="row"><span class="dot" style="background:${catColor(name)}"></span>
-      <span class="name">${esc(name)}</span><span class="amt">${pct}%</span></div>`;
+      <span class="name">${emo(name)}${esc(name)}</span><span class="amt">${pct}%</span></div>`;
   }).join("");
 }
 
@@ -1328,7 +1350,7 @@ function renderBudgets(){
     return `<div class="budget-row" data-cat="${esc(c.nombre)}">
       <div class="budget-top">
         <span class="drag-handle" data-reorder="${esc(c.nombre)}" data-cat="${esc(c.nombre)}" title="Arrastrar para reordenar">⠿</span>
-        <span class="name">${esc(c.nombre)}</span>
+        <span class="name">${emo(c.nombre)}${esc(c.nombre)}</span>
         <span class="nums">${fmtEUR(gastado)} ${presu>0 ? "/ "+fmtEUR(presu) : ""}</span>
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${presu>0?pct:0}%;background:${barColor||'var(--brand)'}"></div></div>
@@ -1509,7 +1531,7 @@ function renderPlanificacion(){
     else if(pct>=85){ badge = "al límite"; cls = "warn"; }
     else { badge = "ok"; cls = "pos"; }
     return `<div class="plan-row">
-      <span class="name">${esc(r.c.nombre)}</span>
+      <span class="name">${emo(r.c.nombre)}${esc(r.c.nombre)}</span>
       <span class="num">${fmtEUR(r.media)}</span>
       <span class="num">${r.limite>0?fmtEUR(r.limite):"—"}</span>
       <span class="badge ${cls}">${badge}</span>
@@ -1556,7 +1578,7 @@ function renderRV(){
     const over = r.est>0 && r.real>r.est;
     const warn = r.est>0 && !over && pct>=85;
     return `<div class="rv-row">
-      <span class="name">${esc(r.nombre)}</span>
+      <span class="name">${emo(r.nombre)}${esc(r.nombre)}</span>
       <span class="est">${fmtEUR(r.est)}</span>
       <span class="real ${over?'neg':'pos'}">${fmtEUR(r.real)}</span>
       <div class="bar-bg"><div class="bar-fill" style="width:${r.est>0?Math.min(100,pct):0}%;background:${r.est>0?limitColor(pctG):'var(--brand)'}"></div></div>
@@ -1651,7 +1673,7 @@ function populateFilterCat(){
   const sel = document.getElementById("filterCat");
   const prev = sel.value;
   sel.innerHTML = '<option value="">Todas las categorías</option>' +
-    categorias.map(c=>`<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join("");
+    categorias.map(c=>`<option value="${esc(c.nombre)}">${esc(c.emoji||"")} ${esc(c.nombre)}</option>`).join("");
   if([...sel.options].some(o=>o.value===prev)) sel.value = prev;
 }
 
@@ -1691,7 +1713,7 @@ function renderTable(){
     return `<div class="tx-card">
       <div class="tc-info">
         <div class="tc-meta">
-          <span class="pill" style="background:${col}22;color:${col}">${esc(t.categoria)}</span>
+          <span class="pill" style="background:${col}22;color:${col}">${emo(t.categoria)}${esc(t.categoria)}</span>
           <span class="tc-date">${fechaCorta}</span>
         </div>
         <span class="tc-desc" title="${esc(t.descripcion)||""}">${esc(t.descripcion) || "—"}</span>
@@ -1711,7 +1733,7 @@ function renderTable(){
     const cls = t.tipo==="Ingreso" ? "pos" : "neg";
     return `<tr>
       <td class="num">${fechaStr}</td>
-      <td><span class="pill" style="background:${catColor(t.categoria)}22;color:${catColor(t.categoria)}">${esc(t.categoria)}</span></td>
+      <td><span class="pill" style="background:${catColor(t.categoria)}22;color:${catColor(t.categoria)}">${emo(t.categoria)}${esc(t.categoria)}</span></td>
       <td>${esc(t.descripcion) || "—"}</td>
       <td class="amt ${cls}">${sign} ${fmtEUR(t.importe)}</td>
       <td><div class="row-actions">
@@ -1774,7 +1796,7 @@ let currentTipo = "Gasto";
 function populateTxCategorias(){
   const sel = document.getElementById("txCategoria");
   const opts = categorias.filter(c=>c.tipo===currentTipo && !c.archivada);
-  sel.innerHTML = opts.map(c=>`<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join("");
+  sel.innerHTML = opts.map(c=>`<option value="${esc(c.nombre)}">${esc(c.emoji||"")} ${esc(c.nombre)}</option>`).join("");
 }
 
 function setTipo(tipo){
@@ -1867,6 +1889,47 @@ document.getElementById("openCategorias").onclick = ()=>{ renderCatList(); overl
 document.getElementById("closeCat").onclick = ()=>overlayCat.classList.remove("show");
 overlayCat.addEventListener("click", e=>{ if(e.target===overlayCat) overlayCat.classList.remove("show"); });
 
+const COMMON_EMOJIS = [
+  "💼","💰","💳","💵","📈","📉","🏦","✨",
+  "🏠","⚡","💧","📱","🚌","🚗","⛽","💊",
+  "🩺","🍽️","🍔","☕","🎬","🎮","✅","🔁",
+  "👕","🧴","🛍️","🎁","🎓","👶","🐶","✈️",
+  "📚","⚽","🎵","🖥️","🧾","❓"
+];
+
+const EMOJI_PICKER = document.getElementById("emojiPicker");
+const EMOJI_GRID = document.getElementById("emojiGrid");
+const EMOJI_FREE = document.getElementById("emojiFree");
+const EMOJI_FREE_BTN = document.getElementById("emojiFreeBtn");
+let emojiPickCallback = null;
+
+function buildEmojiPicker(onPick){
+  emojiPickCallback = onPick;
+  EMOJI_GRID.innerHTML = COMMON_EMOJIS.map(e=>`<button type="button" class="emoji-opt" data-emoji="${e}">${e}</button>`).join("");
+  EMOJI_FREE.value = "";
+  EMOJI_GRID.querySelectorAll(".emoji-opt").forEach(b=>{
+    b.onclick = ()=>{ pickEmoji(b.dataset.emoji); };
+  });
+  EMOJI_FREE_BTN.onclick = ()=>{
+    const e = EMOJI_FREE.value.trim();
+    if(e) pickEmoji(e);
+  };
+  EMOJI_FREE.onkeydown = ev=>{
+    if(ev.key === "Enter"){
+      const e = EMOJI_FREE.value.trim();
+      if(e) pickEmoji(e);
+    }
+  };
+}
+
+function pickEmoji(e){
+  if(emojiPickCallback) emojiPickCallback(e);
+  hideEmojiPicker();
+}
+
+function hideEmojiPicker(){ EMOJI_PICKER.classList.remove("show"); }
+function showEmojiPicker(pick){ EMOJI_PICKER.classList.add("show"); buildEmojiPicker(pick); }
+
 function renderCatList(){
   const box = document.getElementById("catList");
   const activas = categorias.filter(c=>!c.archivada);
@@ -1874,6 +1937,7 @@ function renderCatList(){
 
   const item = c=>`
     <div class="item">
+      <span class="cat-emoji" data-emoji-btn="${esc(c.nombre)}" title="Elegir emoji">${c.emoji || "➕"}</span>
       <span class="swatch" style="background:${c.color}"></span>
       <input type="text" value="${esc(c.nombre)}" data-nombre="${esc(c.nombre)}">
       <span class="hint" style="font-size:11px;color:var(--ink-soft);">${esc(c.tipo)}</span>
@@ -1891,6 +1955,17 @@ function renderCatList(){
     const nombreBase = inp.dataset.nombre;
     const archBtn = row.querySelector("[data-arch]");
     const delBtn = row.querySelector("[data-delcat]");
+    const emojiBtn = row.querySelector("[data-emoji-btn]");
+
+    emojiBtn.addEventListener("click", ()=>{
+      const cat = categorias.find(c=>c.nombre===emojiBtn.dataset.emojiBtn);
+      if(!cat) return;
+      showEmojiPicker(emoji=>{
+        cat.emoji = emoji;
+        writeCats();
+        renderAll(); renderCatList();
+      });
+    });
 
     inp.addEventListener("change", ()=>{
       const cat = categorias.find(c=>c.nombre===nombreBase);
@@ -1942,12 +2017,14 @@ document.getElementById("addCatBtn").onclick = ()=>{
   }
   const palette = ["#146356","#1F9D6D","#C2452F","#D97757","#C0872A","#8A6FBF","#6A7FDB","#3FB88C"];
   const color = palette[categorias.length % palette.length];
+  const emoji = document.getElementById("newCatEmoji").value.trim();
   const orden = tipo==="Gasto"
     ? (categorias.filter(c=>c.tipo==="Gasto").reduce((m,c)=>Math.max(m, c.orden||0),-1)+1)
     : undefined;
-  categorias.push({nombre, tipo, color, nota:"", fijo:tipo==="Gasto"?false:undefined, orden, archivada:false});
+  categorias.push({nombre, tipo, emoji, color, nota:"", fijo:tipo==="Gasto"?false:undefined, orden, archivada:false});
   writeCats();
   document.getElementById("newCatName").value = "";
+  document.getElementById("newCatEmoji").value = "";
   renderAll(); renderCatList();
 };
 

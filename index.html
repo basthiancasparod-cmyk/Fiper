@@ -326,6 +326,9 @@ td.amt.pos{color:var(--pos);} td.amt.neg{color:var(--neg);}
 .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;}
 
 .catlist{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;margin-bottom:14px;}
+.cat-sep{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;
+  color:var(--ink-soft);margin:8px 2px 0;padding-bottom:4px;border-bottom:1px solid var(--line);}
+.cat-sep:first-child{margin-top:0;}
 .catlist .item{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:7px;}
 .catlist .item input[type=text]{flex:1;border:none;background:none;font-size:13px;padding:2px;}
 .catlist .item .swatch{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
@@ -794,23 +797,24 @@ function localTx(){
 }
 
 const DEFAULT_CATS = [
-  {nombre:"Nómina", tipo:"Ingreso", color:"#1F9D6D", presupuesto:0, nota:""},
-  {nombre:"Ingresos extra", tipo:"Ingreso", color:"#3FB88C", presupuesto:0, nota:""},
-  {nombre:"Inversiones", tipo:"Ingreso", color:"#66C9A6", presupuesto:0, nota:""},
-  {nombre:"Otros ingresos", tipo:"Ingreso", color:"#8FDBBF", presupuesto:0, nota:""},
-  {nombre:"Vivienda", tipo:"Gasto", color:"#146356", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Suministros", tipo:"Gasto", color:"#2E7D6B", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Alimentación", tipo:"Gasto", color:"#C2452F", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Transporte", tipo:"Gasto", color:"#D97757", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Salud", tipo:"Gasto", color:"#C0872A", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Ocio y restauración", tipo:"Gasto", color:"#B08A2E", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Suscripciones", tipo:"Gasto", color:"#8A6FBF", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Ropa y cuidado personal", tipo:"Gasto", color:"#6A7FDB", presupuesto:0, nota:"", fijo:false},
-  {nombre:"Otros gastos", tipo:"Gasto", color:"#8B94A3", presupuesto:0, nota:"", fijo:false},
+  {nombre:"Nómina", tipo:"Ingreso", color:"#1F9D6D", nota:""},
+  {nombre:"Ingresos extra", tipo:"Ingreso", color:"#3FB88C", nota:""},
+  {nombre:"Inversiones", tipo:"Ingreso", color:"#66C9A6", nota:""},
+  {nombre:"Otros ingresos", tipo:"Ingreso", color:"#8FDBBF", nota:""},
+  {nombre:"Vivienda", tipo:"Gasto", color:"#146356", nota:"", fijo:false},
+  {nombre:"Suministros", tipo:"Gasto", color:"#2E7D6B", nota:"", fijo:false},
+  {nombre:"Alimentación", tipo:"Gasto", color:"#C2452F", nota:"", fijo:false},
+  {nombre:"Transporte", tipo:"Gasto", color:"#D97757", nota:"", fijo:false},
+  {nombre:"Salud", tipo:"Gasto", color:"#C0872A", nota:"", fijo:false},
+  {nombre:"Ocio y restauración", tipo:"Gasto", color:"#B08A2E", nota:"", fijo:false},
+  {nombre:"Suscripciones", tipo:"Gasto", color:"#8A6FBF", nota:"", fijo:false},
+  {nombre:"Ropa y cuidado personal", tipo:"Gasto", color:"#6A7FDB", nota:"", fijo:false},
+  {nombre:"Otros gastos", tipo:"Gasto", color:"#8B94A3", nota:"", fijo:false},
 ];
 
 let categorias = [];
 let transacciones = [];
+let presupuestos = {};  // { "YYYY-MM": { "Categoría": importe } }
 let initialized = false;
 function setSyncStatus(state){
   const el = document.getElementById("syncStatus");
@@ -845,6 +849,40 @@ function writeTx(){
     .then(()=>setSyncStatus("synced"))
     .catch(()=>setSyncStatus("offline"));
 }
+function writePresupuestos(){
+  if(!fbReady() || !currentUser) return;
+  setSyncStatus("syncing");
+  firebase.database().ref(dbPath()+"/presupuestos").set(presupuestos)
+    .then(()=>setSyncStatus("synced"))
+    .catch(()=>setSyncStatus("offline"));
+}
+
+// presupuesto por mes: "YYYY-MM" -> { Categoría: importe }
+function monthKey(m, y){ return y + "-" + String(m+1).padStart(2,"0"); }
+function presuFor(m, y){ return presupuestos[monthKey(m,y)] || {}; }
+function getPresu(cat, m, y){ return Number(presuFor(m,y)[cat.nombre]) || 0; }
+function setPresu(catName, val, m, y){
+  const key = monthKey(m,y);
+  presupuestos[key] = presupuestos[key] || {};
+  if(Number(val)>0) presupuestos[key][catName] = Number(val);
+  else delete presupuestos[key][catName];
+  writePresupuestos();
+}
+
+// migra el antiguo campo global "presupuesto" de cada categoría al mes actual
+function migrateLegacyPresupuesto(){
+  let changed = false;
+  categorias.forEach(c=>{
+    if(Number(c.presupuesto)>0){
+      const key = monthKey(viewDate.getMonth(), viewDate.getFullYear());
+      presupuestos[key] = presupuestos[key] || {};
+      presupuestos[key][c.nombre] = Number(c.presupuesto);
+      delete c.presupuesto;
+      changed = true;
+    }
+  });
+  if(changed){ writeCats(); writePresupuestos(); }
+}
 
 function attachRemoteListeners(){
   remoteRef = firebase.database().ref(dbPath());
@@ -853,11 +891,17 @@ function attachRemoteListeners(){
     const v = snap.val();
     categorias = Array.isArray(v) ? v : [];
     normalizeOrden();
+    migrateLegacyPresupuesto();
     if(initialized) renderAll();
   });
   ref.child("transacciones").on("value", snap=>{
     const v = snap.val();
     transacciones = Array.isArray(v) ? v : [];
+    if(initialized) renderAll();
+  });
+  ref.child("presupuestos").on("value", snap=>{
+    const v = snap.val();
+    presupuestos = (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
     if(initialized) renderAll();
   });
 }
@@ -902,10 +946,12 @@ function connected(){
   if(remoteRef){
     remoteRef.child("categorias").off();
     remoteRef.child("transacciones").off();
+    remoteRef.child("presupuestos").off();
     remoteRef = null;
   }
   categorias = [];
   transacciones = [];
+  presupuestos = {};
   const el = document.getElementById("sideEmail");
   if(el){
     el.textContent = currentUser.email || "Mi cuenta";
@@ -924,11 +970,13 @@ function disconnected(){
   if(remoteRef){
     remoteRef.child("categorias").off();
     remoteRef.child("transacciones").off();
+    remoteRef.child("presupuestos").off();
     remoteRef = null;
   }
   currentUser = null;
   categorias = [];
   transacciones = [];
+  presupuestos = {};
   remoteLoaded = false;
   initialized = false;
   if(fbDB) firebase.database().goOffline();
@@ -960,10 +1008,10 @@ function ensureCategoriaFields(c){
     nombre: c.nombre,
     tipo: c.tipo,
     color: c.color || "#8B94A3",
-    presupuesto: Number(c.presupuesto)||0,
     nota: c.nota || "",
     fijo: c.tipo === "Gasto" ? !!c.fijo : false,
-    orden: typeof c.orden === "number" ? c.orden : 0
+    orden: typeof c.orden === "number" ? c.orden : 0,
+    archivada: !!c.archivada
   };
 }
 
@@ -1229,11 +1277,11 @@ function renderTrend(){
 function renderBudgets(){
   const m = viewDate.getMonth(), y = viewDate.getFullYear();
   const list = txInMonth(viewDate, m, y);
-  const gastoCats = categorias.filter(c=>c.tipo==="Gasto").sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const gastoCats = categorias.filter(c=>c.tipo==="Gasto" && !c.archivada).sort((a,b)=>(a.orden||0)-(b.orden||0));
   const grid = document.getElementById("budgetGrid");
   const summary = document.getElementById("budgetSummary");
 
-  const totalPresu = gastoCats.reduce((s,c)=>s+(Number(c.presupuesto)||0),0);
+  const totalPresu = gastoCats.reduce((s,c)=>s+getPresu(c,m,y),0);
   const dispo = ingEstimadoMes();
   const falta = dispo - totalPresu;
   const pct = dispo>0 ? Math.min(100, totalPresu/dispo*100) : 0;
@@ -1255,7 +1303,7 @@ function renderBudgets(){
 
   function rowHtml(c, idxInGroup, groupLen){
     const gastado = sum(list.filter(t=>t.categoria===c.nombre));
-    const presu = Number(c.presupuesto)||0;
+    const presu = getPresu(c,m,y);
     const pctGastado = presu>0 ? gastado/presu*100 : 0;
     const pct = Math.min(100, pctGastado);
     const barColor = presu>0 ? limitColor(pctGastado) : "";
@@ -1363,9 +1411,9 @@ function renderBudgets(){
   grid.querySelectorAll(".budget-edit").forEach(inp=>{
     inp.addEventListener("change", e=>{
       const cat = catByName(e.target.dataset.cat);
-      cat.presupuesto = Number(e.target.value)||0;
-      writeCats();
-      renderBudgets();
+      if(!cat) return;
+      setPresu(cat.nombre, e.target.value, m, y);
+      renderBudgets(); renderRV();
     });
   });
 }
@@ -1412,10 +1460,10 @@ function renderRV(){
   const list = txInMonth(viewDate, m, y);
   const ingReal = sum(list.filter(t=>t.tipo==="Ingreso"));
   const ingRef = ingEstimadoMes();
-  const gastoCats = categorias.filter(c=>c.tipo==="Gasto");
+  const gastoCats = categorias.filter(c=>c.tipo==="Gasto" && !c.archivada);
 
   const catRows = gastoCats.map(c=>{
-    const est = Number(c.presupuesto)||0;
+    const est = getPresu(c,m,y);
     const real = sum(list.filter(t=>t.categoria===c.nombre));
     return {nombre:c.nombre, est, real};
   }).filter(r=>r.est>0 || r.real>0);
@@ -1646,7 +1694,7 @@ let currentTipo = "Gasto";
 
 function populateTxCategorias(){
   const sel = document.getElementById("txCategoria");
-  const opts = categorias.filter(c=>c.tipo===currentTipo);
+  const opts = categorias.filter(c=>c.tipo===currentTipo && !c.archivada);
   sel.innerHTML = opts.map(c=>`<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join("");
 }
 
@@ -1742,38 +1790,63 @@ overlayCat.addEventListener("click", e=>{ if(e.target===overlayCat) overlayCat.c
 
 function renderCatList(){
   const box = document.getElementById("catList");
-  box.innerHTML = categorias.map((c,i)=>`
+  const activas = categorias.filter(c=>!c.archivada);
+  const archivadas = categorias.filter(c=>!!c.archivada);
+
+  const item = c=>`
     <div class="item">
       <span class="swatch" style="background:${c.color}"></span>
-      <input type="text" value="${esc(c.nombre)}" data-idx="${i}" data-field="nombre">
+      <input type="text" value="${esc(c.nombre)}" data-nombre="${esc(c.nombre)}">
       <span class="hint" style="font-size:11px;color:var(--ink-soft);">${esc(c.tipo)}</span>
-      <button class="icon-btn" data-delcat="${i}" title="Eliminar">✕</button>
-    </div>`).join("");
+      <button class="icon-btn" data-arch="${esc(c.nombre)}" title="${c.archivada?"Restaurar":"Ocultar (conserva el historial)"}">${c.archivada?"↺":"🗀"}</button>
+      <button class="icon-btn" data-delcat="${esc(c.nombre)}" title="Eliminar definitivamente">✕</button>
+    </div>`;
 
-  box.querySelectorAll("input[data-field]").forEach(inp=>{
-    inp.addEventListener("change", e=>{
-      const idx = Number(e.target.dataset.idx);
-      const nuevoNombre = e.target.value.trim();
-      if(!nuevoNombre) { e.target.value = categorias[idx].nombre; return; }
-      const dupe = categorias.some((c,i)=> i!==idx && c.nombre.toLowerCase()===nuevoNombre.toLowerCase());
-      if(dupe){ alert("Ya existe una categoría con ese nombre."); e.target.value = categorias[idx].nombre; return; }
-      const viejoNombre = categorias[idx].nombre;
-      categorias[idx].nombre = nuevoNombre;
+  box.innerHTML = `
+    ${activas.length ? `<div class="cat-sep">Activas</div>${activas.map(item).join("")}` : ""}
+    ${archivadas.length ? `<div class="cat-sep">Ocultas (mantienen el historial)</div>${archivadas.map(item).join("")}` : ""}
+    ${!categorias.length ? `<div class="empty">Sin categorías.</div>` : ""}`;
+
+  box.querySelectorAll('.item').forEach(row=>{
+    const inp = row.querySelector("input[data-nombre]");
+    const nombreBase = inp.dataset.nombre;
+    const archBtn = row.querySelector("[data-arch]");
+    const delBtn = row.querySelector("[data-delcat]");
+
+    inp.addEventListener("change", ()=>{
+      const cat = categorias.find(c=>c.nombre===nombreBase);
+      if(!cat) return;
+      const nuevoNombre = inp.value.trim();
+      if(!nuevoNombre){ inp.value = cat.nombre; return; }
+      if(categorias.some(c=>c!==cat && c.nombre.toLowerCase()===nuevoNombre.toLowerCase())){
+        alert("Ya existe una categoría con ese nombre.");
+        inp.value = cat.nombre;
+        return;
+      }
+      const viejoNombre = cat.nombre;
+      cat.nombre = nuevoNombre;
       transacciones.forEach(t=>{ if(t.categoria===viejoNombre) t.categoria = nuevoNombre; });
       writeCats(); writeTx();
       renderAll(); renderCatList();
     });
-  });
-  box.querySelectorAll("[data-delcat]").forEach(b=>{
-    b.addEventListener("click", ()=>{
-      const idx = Number(b.dataset.delcat);
-      const nombre = categorias[idx].nombre;
-      const enUso = transacciones.some(t=>t.categoria===nombre);
+
+    archBtn.addEventListener("click", ()=>{
+      const cat = categorias.find(c=>c.nombre===archBtn.dataset.arch);
+      if(!cat) return;
+      cat.archivada = !cat.archivada;
+      writeCats();
+      renderAll(); renderCatList();
+    });
+
+    delBtn.addEventListener("click", ()=>{
+      const cat = categorias.find(c=>c.nombre===delBtn.dataset.delcat);
+      if(!cat) return;
+      const enUso = transacciones.some(t=>t.categoria===cat.nombre);
       if(enUso){
-        alert("No se puede eliminar: hay movimientos registrados con la categoría \""+nombre+"\". Reasígnalos o elimínalos primero.");
+        alert("No se puede eliminar: hay movimientos registrados con la categoría \""+cat.nombre+"\". Ocúltala para conservar el historial o reasigna esos movimientos.");
         return;
       }
-      categorias.splice(idx,1);
+      categorias = categorias.filter(c=>c!==cat);
       writeCats();
       renderAll(); renderCatList();
     });
@@ -1793,7 +1866,7 @@ document.getElementById("addCatBtn").onclick = ()=>{
   const orden = tipo==="Gasto"
     ? (categorias.filter(c=>c.tipo==="Gasto").reduce((m,c)=>Math.max(m, c.orden||0),-1)+1)
     : undefined;
-  categorias.push({nombre, tipo, color, presupuesto:0, nota:"", fijo:tipo==="Gasto"?false:undefined, orden});
+  categorias.push({nombre, tipo, color, nota:"", fijo:tipo==="Gasto"?false:undefined, orden, archivada:false});
   writeCats();
   document.getElementById("newCatName").value = "";
   renderAll(); renderCatList();
